@@ -1,0 +1,69 @@
+name: Policy Check — IaC Security Gate
+
+# Two jobs, deliberately separated:
+#
+# 1. `policy-gate` scans terraform/compliant/ -- this is the actual
+#    security gate a real PR against real infrastructure would go
+#    through. It BLOCKS merge on any failure (no soft_fail).
+#
+# 2. `demonstrate-block` scans terraform/intentionally-misconfigured/ --
+#    a fixture that exists purely to prove the gate actually catches
+#    real misconfigurations. It is expected to fail and is marked
+#    continue-on-error so it doesn't block CI or show a red badge on
+#    the repo, while still being fully visible in the Actions log.
+#
+# This split keeps the repo's CI badge meaningfully green (representing
+# "the real code passes policy") while still giving a live, reproducible
+# demonstration of the gate blocking bad infrastructure -- rather than
+# only relying on the static output saved in examples/.
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - 'policies/checkov-baseline.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+
+jobs:
+  policy-gate:
+    name: Policy gate (compliant/ — blocks merge on failure)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Checkov against terraform/compliant
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/compliant
+          config_file: policies/checkov-baseline.yaml
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          # soft_fail intentionally NOT set here -- a failed check fails
+          # this job and blocks the PR from merging.
+
+      - name: Upload SARIF results to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+        continue-on-error: true
+
+  demonstrate-block:
+    name: Live demo — misconfigured fixture (expected to fail)
+    runs-on: ubuntu-latest
+    continue-on-error: true # expected to fail; does not block the PR or redden the repo badge
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Checkov against terraform/intentionally-misconfigured
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/intentionally-misconfigured
+          config_file:
