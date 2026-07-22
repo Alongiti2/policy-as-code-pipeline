@@ -1,5 +1,13 @@
 name: Policy Check — IaC Security Gate
-
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - 'policies/checkov-baseline.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
 # Two jobs, deliberately separated:
 #
 # 1. `policy-gate` scans terraform/compliant/ -- this is the actual
