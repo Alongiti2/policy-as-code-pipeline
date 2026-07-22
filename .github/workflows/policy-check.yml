@@ -1,13 +1,5 @@
 name: Policy Check — IaC Security Gate
-on:
-  pull_request:
-    paths:
-      - 'terraform/**'
-      - 'policies/checkov-baseline.yaml'
-  push:
-    branches: [main]
-    paths:
-      - 'terraform/**'
+
 # Two jobs, deliberately separated:
 #
 # 1. `policy-gate` scans terraform/compliant/ -- this is the actual
@@ -26,6 +18,7 @@ on:
 # only relying on the static output saved in examples/.
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'terraform/**'
@@ -74,4 +67,6 @@ jobs:
         uses: bridgecrewio/checkov-action@master
         with:
           directory: terraform/intentionally-misconfigured
-          config_file:
+          config_file: policies/checkov-baseline.yaml
+          output_format: cli
+          soft_fail: true # log the findings without failing this already-continue-on-error job twice over
