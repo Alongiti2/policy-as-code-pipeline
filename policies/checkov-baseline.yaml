@@ -1,0 +1,39 @@
+# Checkov baseline configuration for this pipeline.
+#
+# Philosophy: every skipped check below is skipped with a documented
+# reason, not silently ignored. A policy pipeline that skips checks
+# without explanation is worse than no pipeline at all -- it creates
+# false confidence. See policies/README.md for the full checkov-to-CIS/
+# NIST 800-53 mapping.
+
+framework:
+  - terraform
+
+compact: true
+quiet: true
+
+skip-check:
+  # Requires customer-managed KMS keys (CMK) for every encrypted resource.
+  # This is a legitimate hardening step for regulated workloads, but is
+  # scoped out of this baseline pipeline -- default AWS-managed encryption
+  # (which the compliant examples in this repo do use) satisfies the
+  # underlying control (data encrypted at rest); CMK adds key-rotation and
+  # access-control granularity on top of that, which is a Phase 2 hardening
+  # item, not a baseline "is this encrypted at all" gate.
+  - CKV_AWS_189 # EBS volume encrypted by KMS using a customer managed key
+
+  # Operational/cost-optimization features, not security-baseline gates.
+  # These matter for a production deployment but don't belong in a
+  # security misconfiguration gate -- flagging them here would blur the
+  # signal of what this pipeline is actually protecting against.
+  - CKV2_AWS_62 # S3 bucket event notifications enabled
+  - CKV2_AWS_61 # S3 bucket lifecycle configuration
+  - CKV_AWS_144 # S3 bucket cross-region replication (disaster recovery, not a security control)
+
+  # False positive in this repo's structure specifically: Checkov expects
+  # to see the security group referenced by another resource (e.g. an
+  # EC2 instance or ALB) in the same scan. Since this repo's compliant/
+  # folder demonstrates the security group definition in isolation (not
+  # attached to a full application stack), this check cannot pass here
+  # regardless of the security group's actual configuration.
+  - CKV2_AWS_5 # Security group attached to another resource
